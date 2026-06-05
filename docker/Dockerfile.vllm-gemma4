@@ -1,0 +1,7 @@
+FROM vllm/vllm-openai:latest
+
+# 更新 Transformers 以支持 gemma4_unified 架构
+RUN pip install --upgrade transformers accelerate
+
+# 验证安装
+RUN python3 -c "import transformers; print(f'Transformers: {transformers.__version__}')"

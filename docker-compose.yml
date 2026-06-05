@@ -1,0 +1,131 @@
+# 揽宝智能投研交易平台 - Docker Compose 生产配置
+# 使用方式:
+#   docker compose build          # 构建镜像
+#   docker compose up -d          # 启动所有服务
+#   docker compose logs -f        # 查看日志
+#   docker compose down           # 停止并移除服务
+
+services:
+  vllm:
+    image: vllm/vllm-openai:gemma4-unified-x86_64-cu129
+    container_name: vllm
+    restart: unless-stopped
+    command: >
+      --model /root/.cache/huggingface/google/gemma-4-12b-it
+      --served-model-name gemma-4-12b      
+      --chat-template /root/.cache/huggingface/gemma4-chat-template.jinja
+      --max-model-len 32768
+      --gpu-memory-utilization 0.90
+      --host 0.0.0.0
+      --port 8000
+    ports:
+      - "8500:8000"
+    networks:
+      - lanbao-network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    environment:
+      - HF_ENDPOINT=https://hf-mirror.com
+      - TZ=Asia/Shanghai
+    volumes:
+      - /data/huggingface:/root/.cache/huggingface
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 3600s
+
+  hermes:
+    image: nousresearch/hermes-agent:latest
+    container_name: hermes
+    restart: unless-stopped
+    command: gateway run
+    # 使用 host 网络模式，绕过 Docker 网段的防火墙限制，使飞书长连接能正常建立 TLS
+    network_mode: host
+    volumes:
+      - ~/.hermes:/opt/data
+      - ./docker/entrypoint.sh:/opt/hermes/docker/entrypoint.sh:ro
+      # 挂载宿主机 CA 证书（解决公司网络 MITM 代理证书验证问题）
+      - /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt:ro
+      # 挂载自定义 OpenSSL 配置，强制 TLS 1.2（解决 OpenSSL 3.5.5 TLS 1.3 超时）
+      - ./docker/openssl-feishu.cnf:/etc/ssl/openssl-feishu.cnf:ro
+    environment:
+      - HERMES_DASHBOARD=1
+      - HERMES_DASHBOARD_HOST=0.0.0.0
+      - HERMES_DASHBOARD_PORT=9119
+      - HERMES_INFERENCE_PROVIDER=kimi-coding
+      - HERMES_DASHBOARD_TUI=1
+      - API_SERVER_ENABLED=true
+      - API_SERVER_HOST=0.0.0.0
+      - API_SERVER_KEY=${HERMES_API_KEY}
+      - API_SERVER_CORS_ORIGINS=*
+      # 强制 OpenSSL 使用 TLS 1.2，解决与飞书 CDN 的兼容性问题
+      - OPENSSL_CONF=/etc/ssl/openssl-feishu.cnf
+      # Claude Code 配置（与宿主机完全一致，使用 Kimi API 作为后端）
+      - ANTHROPIC_BASE_URL=https://api.kimi.com/coding/
+      - ANTHROPIC_AUTH_TOKEN=${KIMI_API_KEY}
+      - ANTHROPIC_DEFAULT_HAIKU_MODEL=kimi-for-coding
+      - ANTHROPIC_DEFAULT_SONNET_MODEL=kimi-for-coding
+      - ANTHROPIC_DEFAULT_OPUS_MODEL=kimi-for-coding
+      - TZ=Asia/Shanghai
+    stdin_open: true
+    healthcheck:
+      test: ["CMD", "sh", "-c", "ps aux | grep -v grep | grep 'hermes gateway run'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:latest
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      - "3100:8080"
+    volumes:
+      - open-webui:/app/backend/data
+    env_file:
+      - .env      
+    environment:
+      # ── 多后端配置：Hermes + Gemma 4 ──
+      # hermes 使用 host 网络模式，open-webui 通过宿主机 IP 访问
+      # Gemma 4 同样通过宿主机 IP 访问（host 网络模式）
+      - OPENAI_API_BASE_URLS=http://192.168.15.131:8642/v1;http://192.168.15.131:8500/v1
+      - OPENAI_API_KEYS=${HERMES_API_KEY};not-needed
+      - DEFAULT_MODELS=${DEFAULT_MODEL_PRIMARY}
+      - DEFAULT_SYSTEM_PROMPT=${DEFAULT_SYSTEM_PROMPT}
+
+      # 显式指定 SQLite 数据库路径，避免被 .env 中的 DATA_DIR 干扰
+      - DATABASE_URL=sqlite:////app/backend/data/webui.db
+
+      # ── 功能开关 ──
+      - ENABLE_SIGNUP=True
+      - DEFAULT_LOCALE=zh-CN
+      - WEBUI_NAME=长城数字本地模型体验
+
+      # 禁用 Ollama（纯 API 模式）
+      - ENABLE_OLLAMA_API=False
+      - OLLAMA_BASE_URL=
+
+      # ── 增强配置 ──
+      # 允许使用原生 OpenAI 字段（如 reasoning_content）
+      - ENABLE_OPENAI_REASONING_FIELD=true
+      # 自动获取模型列表
+      - ENABLE_OPENAI_FETCH_MODELS=true
+      - TZ=Asia/Shanghai
+    networks:
+      - lanbao-network
+    depends_on:
+      hermes:
+        condition: service_healthy
+
+networks:
+  lanbao-network:
+    driver: bridge
+ 
+volumes:
+  open-webui:

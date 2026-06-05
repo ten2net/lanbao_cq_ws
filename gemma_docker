@@ -1,0 +1,12 @@
+docker run -it --name gemma4 \
+    --ipc=host \
+    --network host \
+    --shm-size 16G \
+    --gpus all \
+    -v /data/huggingface:/root/.cache/huggingface \
+    vllm/vllm-openai:gemma4-unified-x86_64-cu129 \
+        --model /root/.cache/huggingface/google/gemma-4-12B \
+        --max-model-len 32768 \
+        --gpu-memory-utilization 0.90 \
+        --host 0.0.0.0 \
+        --port 8500

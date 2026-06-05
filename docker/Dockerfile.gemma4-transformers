@@ -1,0 +1,11 @@
+FROM vllm/vllm-openai:latest
+
+# Install additional dependencies for native Transformers inference
+RUN pip install --upgrade transformers accelerate fastapi uvicorn
+
+# Copy the server script
+COPY gemma4-server.py /opt/gemma4-server.py
+
+EXPOSE 8500
+
+ENTRYPOINT ["python3", "/opt/gemma4-server.py"]
