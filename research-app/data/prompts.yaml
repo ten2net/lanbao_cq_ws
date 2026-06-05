@@ -1,0 +1,63 @@
+version: "1.0"
+metadata:
+  last_updated: "2026-06-05"
+  author: "揽宝投研团队"
+
+categories:
+  bull:
+    name: 牛市环境
+    icon: "trending-up"
+    color: "#ef4444"
+  bear:
+    name: 熊市环境
+    icon: "trending-down"
+    color: "#22c55e"
+  oscillation:
+    name: 震荡市环境
+    icon: "activity"
+    color: "#f59e0b"
+
+templates:
+  - id: hot-sector-bull
+    name: 热门板块提示词
+    category: bull
+    keywords: ["景气度", "政策溢价", "资金抱团"]
+    description: 寻找轮动热点，分析资金高度活跃的板块
+    variables: []
+    prompt: |
+      请作为一名超短线交易员，分析当前处于"高频换手"和"宽幅震荡"特征的热门板块。
+      要求：
+      ① 找出近期资金高度活跃、换手率处于上升通道的2-3个板块；
+      ② 分析这些板块目前是在"缩量震荡"还是"放量波动"；
+      ③ 总结这些板块的轮动规律（例如是政策联动还是题材变频）。
+
+  - id: dragon-stock-bull
+    name: 龙头个股提示词
+    category: bull
+    keywords: ["资金抱团", "趋势突破", "量能放大"]
+    description: 寻找牛市中强势龙头
+    variables: ["板块名称"]
+    prompt: |
+      请帮我扫描[{{板块名称}}]中处于"趋势加速"或"量价齐升"特征的龙头个股。
+      要求：
+      ① 列出突破关键压力位的标的；
+      ② 给出支撑位、压力位及技术面关键信号；
+      ③ 评估短线弹性。
+
+  - id: defensive-sector-bear
+    name: 防御板块提示词
+    category: bear
+    keywords: ["避险资产", "高股息", "护城河", "估值底"]
+    description: 寻找熊市中的防御性机会
+    variables: []
+    prompt: |
+      请作为一名价值投资者，在当前熊市环境下寻找具有"高股息+低估值+强护城河"特征的防御性板块...
+
+  - id: swing-trade-osc
+    name: 波段交易提示词
+    category: oscillation
+    keywords: ["换手率", "区间变动", "量能异动"]
+    description: 捕捉震荡市中的波段机会
+    variables: ["时间周期", "标的类型"]
+    prompt: |
+      请分析近{{时间周期}}内{{标的类型}}中处于"区间震荡+量能异动"特征的标的...

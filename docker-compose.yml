@@ -123,6 +123,35 @@ services:
       hermes:
         condition: service_healthy
 
+  research-app-backend:
+    build: ./research-app/backend
+    container_name: research-app-backend
+    restart: unless-stopped
+    ports:
+      - "3201:8000"
+    networks:
+      - lanbao-network
+    environment:
+      - HERMES_API_KEY=${HERMES_API_KEY}
+      - HERMES_BASE_URL=http://192.168.15.131:8642
+      - YAML_PATH=/app/data/prompts.yaml
+    volumes:
+      - ./research-app/data:/app/data:rw
+    depends_on:
+      hermes:
+        condition: service_healthy
+
+  research-app-frontend:
+    build: ./research-app/frontend
+    container_name: research-app-frontend
+    restart: unless-stopped
+    ports:
+      - "3200:80"
+    networks:
+      - lanbao-network
+    depends_on:
+      - research-app-backend
+
 networks:
   lanbao-network:
     driver: bridge
