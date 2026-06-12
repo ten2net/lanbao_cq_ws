@@ -36,9 +36,17 @@ export function streamTask(
   onDone: () => void,
   onError: (error: string) => void
 ): () => void {
-  const eventSource = new EventSource(`${API_BASE}/stream/${taskId}`);
+  const eventSource = new EventSource(`${API_BASE}/tasks/stream/${taskId}`);
+  let connected = false;
+  let errorCount = 0;
+
+  eventSource.addEventListener('open', () => {
+    connected = true;
+    errorCount = 0;
+  });
 
   eventSource.addEventListener('message', (event) => {
+    connected = true;
     onMessage(event.data);
   });
 
@@ -48,9 +56,27 @@ export function streamTask(
   });
 
   eventSource.addEventListener('error', () => {
-    eventSource.close();
-    onError('Stream error');
+    if (connected) {
+      // 已连接后出错，允许重试几次
+      errorCount++;
+      if (errorCount > 3) {
+        eventSource.close();
+        onError('SSE 连接中断');
+      }
+    }
+    // 未连接时的 error 是 EventSource 自动重试过程，不处理
   });
 
-  return () => eventSource.close();
+  // 30 秒超时保护
+  const timeout = setTimeout(() => {
+    if (!connected) {
+      eventSource.close();
+      onError('SSE 连接超时');
+    }
+  }, 30000);
+
+  return () => {
+    clearTimeout(timeout);
+    eventSource.close();
+  };
 }

@@ -14,8 +14,10 @@ services:
       --model /root/.cache/huggingface/google/gemma-4-12b-it
       --served-model-name gemma-4-12b      
       --chat-template /root/.cache/huggingface/gemma4-chat-template.jinja
-      --max-model-len 32768
+      --max-model-len 65000
       --gpu-memory-utilization 0.90
+      --enable-auto-tool-choice
+      --tool-call-parser hermes
       --host 0.0.0.0
       --port 8000
     ports:
@@ -43,9 +45,12 @@ services:
     image: nousresearch/hermes-agent:latest
     container_name: hermes
     restart: unless-stopped
+    ports:
+      - "9119:9119"    
+      - "8642:8642"    
     command: gateway run
     # 使用 host 网络模式，绕过 Docker 网段的防火墙限制，使飞书长连接能正常建立 TLS
-    network_mode: host
+    # network_mode: host
     volumes:
       - ~/.hermes:/opt/data
       - ./docker/entrypoint.sh:/opt/hermes/docker/entrypoint.sh:ro
@@ -73,6 +78,8 @@ services:
       - ANTHROPIC_DEFAULT_OPUS_MODEL=kimi-for-coding
       - TZ=Asia/Shanghai
     stdin_open: true
+    networks:
+      - lanbao-network    
     healthcheck:
       test: ["CMD", "sh", "-c", "ps aux | grep -v grep | grep 'hermes gateway run'"]
       interval: 30s
@@ -94,8 +101,8 @@ services:
       # ── 多后端配置：Hermes + Gemma 4 ──
       # hermes 使用 host 网络模式，open-webui 通过宿主机 IP 访问
       # Gemma 4 同样通过宿主机 IP 访问（host 网络模式）
-      - OPENAI_API_BASE_URLS=http://192.168.15.131:8642/v1;http://192.168.15.131:8500/v1
-      - OPENAI_API_KEYS=${HERMES_API_KEY};not-needed
+      - OPENAI_API_BASE_URLS=http://192.168.15.131:8642/v1;http://192.168.15.131:8500/v1;https://apihub.agnes-ai.com/v1
+      - OPENAI_API_KEYS=${HERMES_API_KEY};not-needed;sk-fVfDELXfb1K0bTPccGYBkQA56ilBkJW10sWsJ5gch3uVTgee
       - DEFAULT_MODELS=${DEFAULT_MODEL_PRIMARY}
       - DEFAULT_SYSTEM_PROMPT=${DEFAULT_SYSTEM_PROMPT}
 
@@ -151,6 +158,22 @@ services:
       - lanbao-network
     depends_on:
       - research-app-backend
+
+  # prometheus:
+  #   image: prom/prometheus:latest  # 用最新版本的Prometheus
+  #   container_name: prometheus
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml  # 把本地的prometheus.yml映射到容器內
+  #   ports:
+  #     - "9090:9090"  # 把容器內的9090 port映射到電腦
+  #   restart: unless-stopped  # 如果服務出問題自動重啟
+
+  # grafana:
+  #   image: grafana/grafana:latest  # 用最新版本的Grafana
+  #   container_name: grafana
+  #   ports:
+  #     - "3202:3000"  # 把容器內的3000 port映射到電腦，這是Grafana的Web介面
+  #   restart: unless-stopped      
 
 networks:
   lanbao-network:

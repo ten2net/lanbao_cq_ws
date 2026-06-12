@@ -6,12 +6,56 @@ from models import TaskCreate, TaskResponse
 from services.yaml_service import YAMLService
 from services.hermes_service import HermesService
 import asyncio
+import threading
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
 yaml_service = YAMLService()
 hermes_service = HermesService()
 tasks_store: dict[str, TaskResponse] = {}
+
+
+def _run_task_sync(task_id: str, prompt: str, model: str):
+    """在独立的 event loop 中运行异步任务"""
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(_run_task_async(task_id, prompt, model))
+    except Exception as e:
+        print(f"[_run_task_sync {task_id}] ERROR: {e}")
+    finally:
+        loop.close()
+
+
+async def _run_task_async(task_id: str, prompt: str, model: str):
+    print(f"[_run_task {task_id}] Starting, prompt_len={len(prompt)}, model={model}")
+    task = tasks_store.get(task_id)
+    if not task:
+        print(f"[_run_task {task_id}] ERROR: Task not found in store")
+        return
+    task.status = "running"
+    print(f"[_run_task {task_id}] Status set to running")
+    try:
+        from services.hermes_service import HermesService
+        local_hermes = HermesService()
+        chunk_count = 0
+        async for chunk in local_hermes.stream_completion(prompt, model):
+            chunk_count += 1
+            if chunk_count <= 3:
+                print(f"[_run_task {task_id}] Chunk {chunk_count}: {repr(chunk[:50])}")
+            if task.result is None:
+                task.result = chunk
+            else:
+                task.result += chunk
+        print(f"[_run_task {task_id}] Completed with {chunk_count} chunks")
+        task.status = "completed"
+    except Exception as e:
+        print(f"[_run_task {task_id}] ERROR: {type(e).__name__}: {e}")
+        task.error = str(e)
+        task.status = "failed"
+    finally:
+        task.completed_at = datetime.now()
+        print(f"[_run_task {task_id}] Finished with status={task.status}")
 
 
 @router.post("", response_model=TaskResponse)
@@ -32,26 +76,13 @@ async def create_task(task_create: TaskCreate):
         prompt_id=task_create.prompt_id,
     )
     tasks_store[task_id] = task
-    asyncio.create_task(_run_task(task_id, rendered_prompt, task_create.model))
+    print(f"[create_task] Created task {task_id}")
+
+    thread = threading.Thread(target=_run_task_sync, args=(task_id, rendered_prompt, task_create.model))
+    thread.start()
+    print(f"[create_task] Background thread started: {thread.ident}")
+
     return task
-
-
-async def _run_task(task_id: str, prompt: str, model: str):
-    task = tasks_store.get(task_id)
-    if not task:
-        return
-    task.status = "running"
-    result_parts = []
-    try:
-        async for chunk in hermes_service.stream_completion(prompt, model):
-            result_parts.append(chunk)
-        task.result = "".join(result_parts)
-        task.status = "completed"
-    except Exception as e:
-        task.error = str(e)
-        task.status = "failed"
-    finally:
-        task.completed_at = datetime.now()
 
 
 @router.get("/{task_id}", response_model=TaskResponse)
