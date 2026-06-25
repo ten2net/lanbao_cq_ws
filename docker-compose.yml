@@ -205,6 +205,25 @@ services:
       retries: 3
       start_period: 5s
 
+  eastmoney-mcp:
+    build: ./eastmoney-mcp
+    container_name: eastmoney-mcp
+    restart: unless-stopped
+    ports:
+      - "8003:3000"
+    networks:
+      - lanbao-network
+    environment:
+      - EASTMONEY_APPKEY=${EASTMONEY_APPKEY}
+      - EASTMONEY_COOKIE=${EASTMONEY_COOKIE}
+      - TZ=Asia/Shanghai
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.socket(); s.settimeout(5); s.connect(('127.0.0.1', 3000)); s.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
   research-app-backend:
     build: ./research-app/backend
     container_name: research-app-backend
