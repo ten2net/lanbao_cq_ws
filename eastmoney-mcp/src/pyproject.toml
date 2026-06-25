@@ -1,0 +1,27 @@
+[project]
+name = "eastmoney-mcp-server"
+version = "1.0.0"
+description = "东方财富自选股 MCP Server - 支持自选股管理和实时监控"
+authors = [{name = "Lanbao Quant", email = "dev@lanbao.io"}]
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+    "requests>=2.28.0",
+    "httpx>=0.25.0",
+    "pydantic>=2.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "black", "ruff"]
+
+[project.scripts]
+eastmoney-mcp = "eastmoney_mcp.server:main_sync"
+eastmoney-cli = "eastmoney_mcp.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/eastmoney_mcp"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

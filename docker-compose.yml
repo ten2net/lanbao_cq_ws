@@ -130,6 +130,100 @@ services:
       hermes:
         condition: service_healthy
 
+  mcp-1:
+    build: ./mcp
+    container_name: mcp-1
+    restart: unless-stopped
+    networks:
+      - lanbao-network
+    environment:
+      - IWENCAI_API_KEY=${IWENCAI_API_KEY}
+      - IWENCAI_BASE_URL=${IWENCAI_BASE_URL:-https://openapi.iwencai.com}
+      - TZ=Asia/Shanghai
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.socket(); s.settimeout(5); s.connect(('127.0.0.1', 8002)); s.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  mcp-2:
+    build: ./mcp
+    container_name: mcp-2
+    restart: unless-stopped
+    networks:
+      - lanbao-network
+    environment:
+      - IWENCAI_API_KEY=${IWENCAI_API_KEY}
+      - IWENCAI_BASE_URL=${IWENCAI_BASE_URL:-https://openapi.iwencai.com}
+      - TZ=Asia/Shanghai
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.socket(); s.settimeout(5); s.connect(('127.0.0.1', 8002)); s.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  mcp-3:
+    build: ./mcp
+    container_name: mcp-3
+    restart: unless-stopped
+    networks:
+      - lanbao-network
+    environment:
+      - IWENCAI_API_KEY=${IWENCAI_API_KEY}
+      - IWENCAI_BASE_URL=${IWENCAI_BASE_URL:-https://openapi.iwencai.com}
+      - TZ=Asia/Shanghai
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.socket(); s.settimeout(5); s.connect(('127.0.0.1', 8002)); s.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  mcp-lb:
+    image: nginx:alpine
+    container_name: mcp-lb
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    networks:
+      - lanbao-network
+    volumes:
+      - ./docker/nginx-mcp.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      mcp-1:
+        condition: service_healthy
+      mcp-2:
+        condition: service_healthy
+      mcp-3:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  eastmoney-mcp:
+    build: ./eastmoney-mcp
+    container_name: eastmoney-mcp
+    restart: unless-stopped
+    ports:
+      - "8003:3000"
+    networks:
+      - lanbao-network
+    environment:
+      - EASTMONEY_APPKEY=${EASTMONEY_APPKEY}
+      - EASTMONEY_COOKIE=${EASTMONEY_COOKIE}
+      - TZ=Asia/Shanghai
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.socket(); s.settimeout(5); s.connect(('127.0.0.1', 3000)); s.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
   research-app-backend:
     build: ./research-app/backend
     container_name: research-app-backend

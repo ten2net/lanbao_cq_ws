@@ -1,0 +1,47 @@
+{
+  "mcpServers": {
+    "eastmoney": {
+      "name": "东方财富自选股",
+      "description": "东方财富自选股管理和行情监控",
+      "command": "eastmoney-mcp",
+      "env": {
+        "EASTMONEY_APPKEY": "${EASTMONEY_APPKEY}",
+        "EASTMONEY_COOKIE": "${EASTMONEY_COOKIE}"
+      },
+      "tools": [
+        {
+          "name": "get_watchlist_groups",
+          "description": "获取东方财富自选股分组列表"
+        },
+        {
+          "name": "get_watchlist", 
+          "description": "获取指定分组的自选股列表"
+        },
+        {
+          "name": "get_stock_quote",
+          "description": "获取单只股票的实时行情"
+        },
+        {
+          "name": "get_batch_quotes",
+          "description": "批量获取多只股票行情"
+        },
+        {
+          "name": "create_watchlist_group",
+          "description": "创建新的自选股分组"
+        },
+        {
+          "name": "add_to_watchlist",
+          "description": "添加股票到自选股"
+        },
+        {
+          "name": "remove_from_watchlist",
+          "description": "从自选股中移除股票"
+        },
+        {
+          "name": "get_watchlist_summary",
+          "description": "获取自选股概览统计"
+        }
+      ]
+    }
+  }
+}
